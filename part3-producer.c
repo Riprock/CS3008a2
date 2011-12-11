@@ -3,6 +3,10 @@
   Fergal Hainey
 */
 
+#define DEBUG 0
+#include "fdebug.h"
+
+#include "part3-common.h"
 #include "fcrc.h"
 
 #include <stdio.h>
@@ -13,6 +17,7 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 
 void byte2string(unsigned char subject, char *dst) {
 	int i;
@@ -35,50 +40,28 @@ void printbytes(int length, unsigned char *bytes) {
 
 int main() {
 	int transmitted  = 0;
-	int target = 10000000;
-	int maxmlength = 4086;
-	key_t shmkey = 18021;
-	char temp[maxmlength];
+	char temp[MAX_MSG_LENGTH];
 	int mlength;
 	uint32_t crc32table[256];
 	make_crc32_table(crc32table);
 	uint32_t cksum;
 	
-	int shmid = shmget(shmkey, 4096, IPC_CREAT | 0600);
-	if (shmid < 0) {
-		switch (errno) {
-			case EACCES:
-				printf("EACCES\n");
-				break;
-			case EEXIST:
-				printf("EEXIST\n");
-				break;
-			case EINVAL:
-				printf("EINVAL\n");
-				break;
-			case ENOENT:
-				printf("ENOENT\n");
-				break;
-			case ENOMEM:
-				printf("ENOMEM\n");
-				break;
-			case ENOSPC:
-				printf("ENOSPC\n");
-				break;
-		}
-		return 1;
-	}
+	int semid = semget(SEMKEY, 2, IPC_CREAT | 0600);
+	REPORT_EXIT_ERROR(semid);
+	
+	int shmid = shmget(SHMKEY, 4096, IPC_CREAT | 0600);
+	REPORT_EXIT_ERROR(shmid);
 	unsigned char *shm = (unsigned char*) shmat(shmid, 0, 0);
-	if (shm < 0) return 2;
+	REPORT_EXIT_ERROR(shm);
 	
 	/*
 	  A brief explanation of the protocol of the shared memory.
 	  
-	  The first byte is who we are waiting for: 'p' for producer, 'c' for 
-	  consumer. If this byte changes to the one the process is supposed to be 
-	  listening for, the process gets to work.
+	  Semaphores are used for synchronising access. The producer gets semaphore 
+	  0 and consume gets 1. When your semaphore value becomes 0 it's time to 
+	  work.
 	  
-	  The next byte is the status. When a process starts working again and the 
+	  The first byte is the status. When a process starts working again and the 
 	  status is non zero, give up and destroy the shared memory.
 	  
 	  The next 4 bytes are the length of the message as a signed 32 bit int.
@@ -89,28 +72,45 @@ int main() {
 	  Remember to leave enough space in the shared memory for this.
 	*/
 	
-	shm[0] = (unsigned char) 'p'; // We're currently waiting for this process
+	
+	struct sembuf sops[1];
+	sops[0].sem_flg = 0;
+	
+	int semdef[] = {1, 0};
+	semctl(semid, 0, SETALL, semdef); // The producer works first
 	
 	FILE *random = fopen("/dev/urandom", "r"); // Random data from /dev/urandom
 	
-	while (transmitted < target) {
-		while ((char) shm[0] != 'p'); // Wait my turn.
-		if (transmitted == 0) printf("Producer working\n");
-		if (shm[1] != 0) break; // It's all gone wrong, skip to closing.
-		if ((target - transmitted) > maxmlength) mlength = maxmlength;
-		else mlength = target - transmitted;
+	while (transmitted < CONSUME_TARGET) {
+		sops[0].sem_num = 0;
+		sops[0].sem_op = -1;
+		SHOW_EXIT_ERROR(semop, semid, sops, 1); // Wait my turn.
+		DPRINTF("Producer working\n");
+		if (shm[0] != 0) break; // It's all gone wrong, skip to closing.
+		if ((CONSUME_TARGET - transmitted) > MAX_MSG_LENGTH)
+			mlength = MAX_MSG_LENGTH;
+		else mlength = CONSUME_TARGET - transmitted;
 		fread(temp, 1, mlength, random);
 		cksum = crc32(mlength, temp, crc32table);
-		memcpy(&shm[2], &mlength, 4); // Length in shared memory
-		memcpy(&shm[6], temp, mlength); // Message in shared memory
-		memcpy(&shm[6 + mlength], &cksum, 4); // Checksum in shared memory
-		shm[1] = 0;
-		shm[0] = (unsigned char) 'c';
+		memcpy(&shm[1], &mlength, 4); // Length in shared memory
+		memcpy(&shm[5], temp, mlength); // Message in shared memory
+		memcpy(&shm[5 + mlength], &cksum, 4); // Checksum in shared memory
+		shm[0] = 0;
+		
+		DPRINTF("Producer not working\n");
+		sops[0].sem_num = 1;
+		sops[0].sem_op = 1;
+		SHOW_EXIT_ERROR(semop, semid, sops, 1);
 		
 		transmitted += mlength;
 	}
 	
+	sops[0].sem_num = 0;
+	sops[0].sem_op = -1;
+	SHOW_EXIT_ERROR(semop, semid, sops, 1); // Wait my turn.
 	shmdt(shm); // Detach shared memory
 	shmctl(shmid, IPC_RMID, 0); // Destroy it
+	semctl(semid, 0, IPC_RMID); // Destroy semaphores
 	fclose(random);
+	DPRINTF("p %d\n", mlength);
 }
