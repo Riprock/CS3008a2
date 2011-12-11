@@ -91,7 +91,7 @@ int main() {
 	
 	shm[0] = (unsigned char) 'p'; // We're currently waiting for this process
 	
-	FILE *random = fopen("/dev/random", "r"); // Random data from /dev/random
+	FILE *random = fopen("/dev/urandom", "r"); // Random data from /dev/urandom
 	
 	while (transmitted < target) {
 		while ((char) shm[0] != 'p'); // Wait my turn.
