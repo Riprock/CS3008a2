@@ -24,17 +24,18 @@ struct List {
 };
 
 int main(int argc, char **argv) {
-	int f = open("part5-mapped.bin", O_RDWR | O_CREAT, 0600);
-	FILE *file = fdopen(f, "w+");
+	FILE *file = fopen("part5-mapped.bin", "a+");
+	rewind(file);
 	if (fgetc(file) == EOF) {
+		DPRINTF("Making file\n");
 		int i;
 		for (i = 0; i < MAPPED_SIZE; i++) {
 			fputc(0, file);
 		}
 		fflush(file);
 	}
-	else rewind(file);
-	
+	fclose(file);
+	int f = open("part5-mapped.bin", O_RDWR, 0);
 	unsigned char *mapped = (unsigned char*) mmap(
 		0,
 		MAPPED_SIZE,
