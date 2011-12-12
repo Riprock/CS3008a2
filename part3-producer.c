@@ -19,25 +19,6 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 
-void byte2string(unsigned char subject, char *dst) {
-	int i;
-	for (i = 0; i < 8; i++) {
-		if ((subject >> i) & 1) dst[i] = '1';
-		else dst[i] = '0';
-	}
-	dst[8] = 0;
-}
-
-void printbytes(int length, unsigned char *bytes) {
-	int i;
-	char binary[9];
-	for (i = 0; i < length; i++) {
-		byte2string(bytes[i], binary);
-		printf("%s ", binary);
-	}
-	printf("\n");
-}
-
 int main() {
 	int transmitted  = 0;
 	char temp[MAX_MSG_LENGTH];
