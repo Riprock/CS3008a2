@@ -1,8 +1,8 @@
 .PHONY: demo
-demo: demo1 demo2 demo3 demo4
+demo: demo1 demo2 demo3 demo4 demo5
 
 .PHONY: all
-all: part1 part2 part3 part4
+all: part1 part2 part3 part4 part5
 
 part1:
 	g++ part1.c -o part1
@@ -75,6 +75,16 @@ part4-producer: fcrc.o
 part4-consumer: fcrc.o
 	g++ part4-consumer.c -o part4-consumer fcrc.o
 
+part5:
+	g++ part5.c -o part5
+
+.PHONY: demo5
+demo5: part5
+	@echo Writing to mapped file "part5-mapped.bin".
+	./part5
+	@echo Walking list and print strings.
+	./part5 -r
+
 .PHONY: clean
 clean:
 	-rm -f *.o
@@ -87,3 +97,5 @@ clean:
 	-rm -f part4-producer
 	-rm -f part4-consumer
 	-rm -f part4-evidence.txt
+	-rm -f part5
+	-rm -f part5-mapped.bin
