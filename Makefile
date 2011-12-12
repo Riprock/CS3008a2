@@ -34,7 +34,7 @@ demo3: part3
 clean3:
 	-killall part3-producer
 	-killall part3-consumer
-	-ipcrm -M 18021
+	-ipcrm -M 18021 -S 18022
 
 .PHONY: test3
 test3: clean3 demo3
