@@ -57,6 +57,7 @@ demo4: part4
 	@echo Pausing for shared memory set up
 	@sleep 1
 	./part4-consumer
+	@echo See part4-evidence.txt for evidence.
 
 .PHONY: clean4
 clean4:
