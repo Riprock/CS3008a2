@@ -1,8 +1,8 @@
 .PHONY: demo
-demo: demo1 demo2 demo3
+demo: demo1 demo2 demo3 demo4
 
 .PHONY: all
-all: part1 part2 part3
+all: part1 part2 part3 part4
 
 part1:
 	g++ part1.c -o part1
@@ -48,6 +48,32 @@ part3-producer: fcrc.o
 part3-consumer: fcrc.o
 	g++ part3-consumer.c -o part3-consumer fcrc.o
 
+.PHONY: part4
+part4: part4-producer part4-consumer
+
+.PHONY: demo4
+demo4: part4
+	./part4-producer &
+	@echo Pausing for shared memory set up
+	@sleep 1
+	./part4-consumer
+
+.PHONY: clean4
+clean4:
+	-killall part4-producer
+	-killall part4-consumer
+	-ipcrm -M 18023 -S 18024
+	-rm -f part4-evidence.txt
+
+.PHONY: test4
+test4: clean4 demo4
+
+part4-producer: fcrc.o
+	g++ part4-producer.c -o part4-producer fcrc.o
+
+part4-consumer: fcrc.o
+	g++ part4-consumer.c -o part4-consumer fcrc.o
+
 .PHONY: clean
 clean:
 	-rm -f *.o
@@ -57,3 +83,6 @@ clean:
 	-rm -f testwrite.gif
 	-rm -f part3-producer
 	-rm -f part3-consumer
+	-rm -f part4-producer
+	-rm -f part4-consumer
+	-rm -f part4-evidence.txt
